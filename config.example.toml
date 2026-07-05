@@ -1,0 +1,21 @@
+# Folder inside your Google Drive synced directory.
+remote_server_dir = "G:/My Drive/Minecraft/server"
+
+# Local working copy. The launcher runs the modpack script from here.
+local_server_dir = "C:/Minecraft/server-work"
+
+# Example for a .bat file that remains open until the server stops.
+start_command = ["cmd", "/c", "start-server.bat"]
+
+# Optional. Defaults to your hostname.
+machine_name = "gaming-pc"
+
+# Optional. State lives next to remote_server_dir by default.
+# state_dir = "G:/My Drive/Minecraft/.launcher-state"
+
+# Optional. Files matched here are not mirrored by the Python sync backend.
+sync_ignore = ["*.tmp", "logs/latest.log"]
+
+# Optional.
+stale_lock_minutes = 30
+heartbeat_seconds = 30
