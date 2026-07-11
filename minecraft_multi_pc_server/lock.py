@@ -5,7 +5,7 @@ from datetime import timedelta
 from pathlib import Path
 import os
 
-from .state import LOCK_FILE, iso_now, parse_iso, read_json, remove_file, utc_now, write_json, write_json_exclusive
+from .state import LOCK_FILE, StateError, iso_now, parse_iso, read_json, remove_file, utc_now, write_json, write_json_exclusive
 
 
 class LockError(RuntimeError):
@@ -19,16 +19,22 @@ class LockInfo:
     status: str
     created_at: str
     heartbeat_at: str
+    connection_address: str = ""
 
     @classmethod
     def from_dict(cls, payload: dict[str, object]) -> "LockInfo":
-        return cls(
-            owner=str(payload.get("owner", "unknown")),
-            pid=int(payload.get("pid", 0)),
-            status=str(payload.get("status", "running")),
-            created_at=str(payload.get("created_at", "")),
-            heartbeat_at=str(payload.get("heartbeat_at", "")),
-        )
+        try:
+            pid = int(payload.get("pid", 0))
+        except (TypeError, ValueError) as exc:
+            raise LockError("Invalid lock file: 'pid' must be an integer") from exc
+        owner = payload.get("owner", "unknown")
+        status = payload.get("status", "running")
+        created_at = payload.get("created_at", "")
+        heartbeat_at = payload.get("heartbeat_at", "")
+        connection_address = payload.get("connection_address", "")
+        if not all(isinstance(value, str) for value in (owner, status, created_at, heartbeat_at, connection_address)):
+            raise LockError("Invalid lock file: text fields have invalid types")
+        return cls(owner, pid, status, created_at, heartbeat_at, connection_address)
 
     def to_dict(self) -> dict[str, object]:
         return {
@@ -37,18 +43,29 @@ class LockInfo:
             "status": self.status,
             "created_at": self.created_at,
             "heartbeat_at": self.heartbeat_at,
+            "connection_address": self.connection_address,
         }
 
 
 class ServerLock:
-    def __init__(self, state_dir: Path, machine_name: str, stale_after: timedelta):
+    def __init__(
+        self,
+        state_dir: Path,
+        machine_name: str,
+        stale_after: timedelta,
+        connection_address: str = "",
+    ):
         self.state_dir = state_dir
         self.machine_name = machine_name
         self.stale_after = stale_after
+        self.connection_address = connection_address
         self.path = state_dir / LOCK_FILE
 
     def read(self) -> LockInfo | None:
-        payload = read_json(self.path)
+        try:
+            payload = read_json(self.path)
+        except StateError as exc:
+            raise LockError(str(exc)) from exc
         if payload is None:
             return None
         return LockInfo.from_dict(payload)
@@ -73,6 +90,7 @@ class ServerLock:
             status="running",
             created_at=now,
             heartbeat_at=now,
+            connection_address=self.connection_address,
         )
         try:
             if force:
@@ -98,6 +116,7 @@ class ServerLock:
             status=status,
             created_at=existing.created_at,
             heartbeat_at=iso_now(),
+            connection_address=existing.connection_address,
         )
         write_json(self.path, updated.to_dict())
 
@@ -111,6 +130,7 @@ class ServerLock:
             status=status,
             created_at=existing.created_at,
             heartbeat_at=iso_now(),
+            connection_address=existing.connection_address,
         )
         write_json(self.path, updated.to_dict())
 
@@ -123,7 +143,8 @@ class ServerLock:
 
 def _lock_message(lock: LockInfo, stale: bool) -> str:
     suffix = " It looks stale; use unlock --force or confirm override." if stale else ""
+    connection = f" Connect to {lock.connection_address}." if lock.connection_address else ""
     return (
         f"Server is locked by {lock.owner} since {lock.created_at} "
-        f"(last heartbeat {lock.heartbeat_at}, status {lock.status}).{suffix}"
+        f"(last heartbeat {lock.heartbeat_at}, status {lock.status}).{connection}{suffix}"
     )

@@ -4,12 +4,17 @@ from datetime import UTC, datetime
 import json
 import os
 from pathlib import Path
+import tempfile
 from typing import Any
 
 
 LOCK_FILE = "lock.json"
 LAST_RUN_FILE = "last_run.json"
 LAST_ERROR_FILE = "last_error.json"
+
+
+class StateError(RuntimeError):
+    """Raised when shared launcher state is corrupt or cannot be persisted."""
 
 
 def utc_now() -> datetime:
@@ -26,16 +31,41 @@ def parse_iso(value: str) -> datetime:
 
 def read_json(path: Path) -> dict[str, Any] | None:
     try:
-        return json.loads(path.read_text(encoding="utf-8"))
+        payload = json.loads(path.read_text(encoding="utf-8"))
     except FileNotFoundError:
         return None
+    except (OSError, json.JSONDecodeError) as exc:
+        raise StateError(f"Cannot read state file {path}: {exc}") from exc
+    if not isinstance(payload, dict):
+        raise StateError(f"Invalid state file {path}: expected a JSON object")
+    return payload
 
 
 def write_json(path: Path, payload: dict[str, Any]) -> None:
+    write_text_atomic(path, json.dumps(payload, indent=2, sort_keys=True) + "\n")
+
+
+def write_text_atomic(path: Path, content: str, encoding: str = "utf-8") -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
-    tmp = path.with_suffix(path.suffix + ".tmp")
-    tmp.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
-    tmp.replace(path)
+    temp_path: Path | None = None
+    try:
+        with tempfile.NamedTemporaryFile(
+            mode="w",
+            encoding=encoding,
+            dir=path.parent,
+            prefix=f".{path.name}.",
+            suffix=".tmp",
+            delete=False,
+        ) as file:
+            temp_path = Path(file.name)
+            file.write(content)
+            file.flush()
+            os.fsync(file.fileno())
+        temp_path.replace(path)
+    except (OSError, TypeError, ValueError) as exc:
+        if temp_path is not None:
+            remove_file(temp_path)
+        raise StateError(f"Cannot write file {path}: {exc}") from exc
 
 
 def write_json_exclusive(path: Path, payload: dict[str, Any]) -> None:

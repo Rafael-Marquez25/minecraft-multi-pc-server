@@ -3,4 +3,17 @@ __pycache__/
 .pytest_cache/
 .mypy_cache/
 .ruff_cache/
+
 config.toml
+.minecraft_launcher_gui_state.json
+minecraft_launcher_gui.log
+estado/
+server_temp/
+minecraft-servers/
+
+build/
+dist/
+*.spec
+
+build-qt/
+build-qt-msys/

@@ -1,21 +1,43 @@
-# Folder inside your Google Drive synced directory.
-remote_server_dir = "G:/My Drive/Minecraft/server"
+# Recommended Python GUI mode: Google Drive folder containing dated ZIP backups.
+# The launcher uses the newest ZIP here and creates a new dated ZIP after shutdown.
+# After each upload it keeps only the 3 newest ZIP files in this folder.
+remote_archive_dir = "C:/minecraft-multi-pc-server/minecraft-servers"
 
-# Local working copy. The launcher runs the modpack script from here.
-local_server_dir = "C:/Minecraft/server-work"
+# Local working copy. The launcher extracts the newest ZIP here and runs the server here.
+local_server_dir = "C:/minecraft-multi-pc-server/server_temp"
 
-# Example for a .bat file that remains open until the server stops.
-start_command = ["cmd", "/c", "start-server.bat"]
+# Server launch script. Direct PowerShell keeps the launcher silent and logs inside the GUI.
+start_command = ["powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", "start.ps1"]
+# Batch alternative:
+# start_command = ["cmd", "/c", "start.bat"]
 
-# Optional. Defaults to your hostname.
+# Optional. Defaults to your Windows hostname.
 machine_name = "gaming-pc"
 
-# Optional. State lives next to remote_server_dir by default.
-# state_dir = "G:/My Drive/Minecraft/.launcher-state"
+# Connection mode for friends joining the server.
+# "tailscale" is recommended when nobody wants to open router ports.
+# "manual" keeps the old behavior and leaves connection setup to you.
+connection_mode = "tailscale"
 
-# Optional. Files matched here are not mirrored by the Python sync backend.
-sync_ignore = ["*.tmp", "logs/latest.log"]
+# Machine-specific server.properties override.
+# With Tailscale, use "blank" so Minecraft listens on VPN/LAN/local interfaces.
+# "auto" writes the detected local IPv4 into server-ip before starting.
+# A manual IP like "192.168.1.50" forces that address.
+server_ip = "blank"
 
-# Optional.
+# Optional. Defaults to remote_archive_dir/.minecraft_multi_pc_state.
+# Keep this in the shared Drive folder so all PCs see the same lock.
+state_dir = "C:/minecraft-multi-pc-server/minecraft-servers/.minecraft_multi_pc_state"
+
+# Files not included in new ZIPs.
+# Do not ignore world, mods, config, libraries, versions, .fabric, eula.txt, or server.properties.
+sync_ignore = [".tmp.drivedownload/**", ".tmp.driveupload/**", "logs/**", ".mixin.out/**"]
+
+# Lock becomes stale after this many minutes without heartbeat.
 stale_lock_minutes = 30
+
+# Heartbeat interval while server is running.
 heartbeat_seconds = 30
+
+# ZIP compression: 0 no compression, 1 fast, 9 smaller/slower.
+archive_compression_level = 1

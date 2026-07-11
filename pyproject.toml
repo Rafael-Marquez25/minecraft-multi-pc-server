@@ -1,8 +1,9 @@
 [project]
 name = "minecraft-multi-pc-server"
 version = "0.1.0"
-description = "CLI launcher for sharing a custom Minecraft server folder across multiple PCs."
+description = "Python launcher and GUI for sharing a Minecraft server across multiple PCs with dated ZIPs in Google Drive."
 requires-python = ">=3.11"
 
 [project.scripts]
 minecraft-launcher = "minecraft_multi_pc_server.cli:main"
+minecraft-launcher-gui = "minecraft_multi_pc_server.gui:main"
